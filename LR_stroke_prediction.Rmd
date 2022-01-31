@@ -1,0 +1,257 @@
+---
+title: "stroke"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Import Library
+```{r}
+library(tidyverse)
+library(readxl)
+library(rms)
+```
+
+
+## Read & Clean Data
+```{r cars}
+setwd("C:/UBC MBAN Coursework/3 BABS 508 Advanced Predictive Business Analytics/Project")
+dat <- read_excel('Stroke.xlsx')
+# dat <- read.csv('Stroke.csv')
+dim(dat) # Check dimension
+dat <- na.omit( dat )
+dat <- dat %>% filter(bmi != 'N/A') # Remove rows with 'N/A' bmi value 
+dim(dat) # Check dimension after removing missing values
+```
+
+
+## Explore Data
+```{r}
+d <- describe(dat)
+html(d, size = 80, scroll = TRUE)
+```
+
+
+## Factorize/Numerize variables + change reference group for smoke
+```{r transform}
+dat$gender <- as.factor(dat$gender)
+dat$hypertension <- as.factor(dat$hypertension)
+dat$heart_disease <- as.factor(dat$heart_disease)
+dat$ever_married <- as.factor(dat$ever_married)
+dat$work_type <- as.factor(dat$work_type)
+dat$Residence_type <- as.factor(dat$Residence_type)
+dat$smoking_status <- as.factor(dat$smoking_status)
+dat$smoking_status <- relevel(dat$smoking_status, ref = 'never smoked')
+dat$bmi <- as.numeric(dat$bmi)
+# dat$stroke <-as.factor(dat$stroke)
+```
+
+
+
+## Two-way (categorical)
+```{r seecrosstab}
+xtabs(~stroke + gender, data = dat)
+xtabs(~stroke + hypertension, data = dat)
+xtabs(~stroke + heart_disease, data = dat)
+xtabs(~stroke + ever_married, data = dat)
+xtabs(~stroke + work_type, data = dat)
+xtabs(~stroke + Residence_type, data = dat)
+xtabs(~stroke + smoking_status, data = dat)
+```
+
+
+## Prepare the data
+```{r selectpred, echo=FALSE}
+# List of names of variables to analyze
+v <- c('stroke','gender','age','hypertension','heart_disease',
+       'ever_married', 'work_type', 'Residence_type', 'avg_glucose_level', 'bmi', 
+       'smoking_status')
+dat <- dat[, v]
+units(dat$age) <- 'years'
+```
+
+
+## Summarize data
+```{r summarize, echo=FALSE}
+s <- summary(gender + age + hypertension + heart_disease + ever_married + 
+             work_type + Residence_type + avg_glucose_level + bmi + smoking_status 
+              ~ stroke, data = dat, overall = TRUE)
+
+
+html(s, caption='Predictors according to stroke(Y/N)',
+     exclude1 = TRUE, npct = 'both', digits = 2,
+     prmsd = TRUE, brmsd = TRUE, msdsize = mu$smaller2)
+
+```
+
+
+## Correlation Matrix
+```{r seecorrelation}
+tmp <- data.matrix(data.frame(unclass(dat))) #label categorical data into numeric
+rcorr(tmp)
+```
+
+
+
+## Visualize the relationship between the continuous variables and the outcome (stroke) to assess linearity
+
+# Histspike bins the continuous x variable into equal-width bins and then computes and plots the frequency counts of Y within each bin. The function then displays the proportions as a vertical histogram with a loess curve fit to the plot.The loess nonparametric smoother is an excellent tool for determining the shape of the relationship between a predictor and the response
+```{r seelin, echo=FALSE}
+# datadist function computes statistical summaries of predictors to  automate 
+# estimation and plotting of effects
+dd <- datadist(dat)
+options(datadist = "dd")
+
+a <- ggplot(dat, aes(x = age, y = stroke)) +
+  histSpikeg(stroke ~ age, lowess = TRUE, data = dat) +
+  labs(x = "\nAge", y = "Probability(Stroke)\n")
+
+a
+
+
+b <- ggplot(dat, aes(x = avg_glucose_level, y = stroke)) +
+  histSpikeg(stroke ~ avg_glucose_level, lowess = TRUE, data = dat) +
+  labs(x = "\nAvg_glucose_level", y = "Probability(Stroke)\n")
+
+b
+
+c <- ggplot(dat, aes(x = bmi, y = stroke)) +
+  histSpikeg(stroke ~ bmi, lowess = TRUE, data = dat) +
+  labs(x = "\nbmi", y = "Probability(Stroke)\n")
+
+c
+```
+
+
+## Consider polynomial transformations for possible non-linearity
+```{r seepoly1, echo=FALSE}
+quad_bmi <- lrm(stroke ~ gender + age + hypertension + heart_disease + ever_married + work_type + Residence_type + avg_glucose_level + poly(bmi, 2) + smoking_status , data = dat)
+print(quad_bmi)
+```
+
+```{r seepoly2, echo=FALSE}
+# cube_glucoe <- lrm(stroke ~ gender + age + hypertension + heart_disease + ever_married + work_type + Residence_type + poly(avg_glucose_level,3) + bmi + smoking_status , data = dat)
+# print(cube_glucose)
+```
+
+## Suspect interactions between the effect of age and other predictor variables...initial examination using Analysis of Variance
+```{r aov_age_gender, echo=FALSE}
+# Testing interaction between age and gender
+m = aov(stroke ~ age * gender, dat)
+summary(m)
+```
+
+```{r aov_age_ht, echo=FALSE}
+# Testing interaction between age and hypertension
+m = aov(stroke ~ age * hypertension, dat)
+summary(m)
+```
+
+```{r aov_age_bmi, echo=FALSE}
+# Testing interaction between age and bmi
+m = aov(stroke ~ age * bmi, dat)
+summary(m)
+```
+
+```{r aov_age_ss, echo=FALSE}
+# Testing interaction between age and smoking_status
+m = aov(stroke ~ age * smoking_status, dat)
+summary(m)
+```
+
+```{r aov_age_em, echo=FALSE}
+# Testing interaction between age and ever_married
+m = aov(stroke ~ age * ever_married, dat)
+summary(m)
+```
+
+```{r aov_age_rt, echo=FALSE}
+# Testing interaction between age and Residence_type
+m = aov(stroke ~ age * Residence_type, dat)
+summary(m)
+```
+
+```{r aov_age_hd, echo=FALSE}
+# Testing interaction between age and heart_disease
+m = aov(stroke ~ age * heart_disease, dat)
+summary(m)
+```
+
+```{r aov_age_agl, echo=FALSE}
+# Testing interaction between age and avg_glucose_level
+m = aov(stroke ~ age * avg_glucose_level, dat)
+summary(m)
+```
+
+```{r aov_age_wt, echo=FALSE}
+# Testing interaction between age and work_type
+m = aov(stroke ~ age * work_type, dat)
+summary(m)
+```
+
+```{r multicol, echo=FALSE}
+checkint <- lrm(stroke ~ gender + age + hypertension + heart_disease + ever_married + work_type + Residence_type + avg_glucose_level + bmi + smoking_status , data = dat, , x=TRUE, y= TRUE)
+print(checkint)
+
+# The VIF function in RMS Computes variance inflation factors from the covariance matrix of parameter estimates
+# RMS VIF will provide estimates for categorical variables
+vif(checkint)
+```
+
+
+##  Suspect interactions between the effect of age and two predictor variables
+```{r seeinteraction1, echo=FALSE}
+a_and_h <- lrm(stroke ~ gender + age + hypertension + age*hypertension + heart_disease + ever_married + work_type + Residence_type + avg_glucose_level + bmi + smoking_status , data = dat)
+print(a_and_h)
+```
+
+```{r seeinteraction2, echo=FALSE}
+a_and_s <- lrm(stroke ~ gender + age + hypertension + age*smoking_status + heart_disease + ever_married + work_type + Residence_type + avg_glucose_level + bmi + smoking_status , data = dat)
+print(a_and_s)
+```
+
+
+## Stepwise Variable Selection
+# perform backward stepwise variable selection - the final model should be adjusted later
+```{r bwstep, echo=FALSE}
+fastbw(checkint)
+```
+
+
+## Final Model
+```{r finalmodel, echo=FALSE}
+final_model <- lrm(stroke ~ age + hypertension, data = dat,x = TRUE, y = TRUE)
+print(final_model)
+```
+
+## Influential observation
+```{r finalmodelinfl, echo=FALSE}
+u4 <- which.influence (final_model, .4) 
+print(u4)
+u2 <- which.influence (final_model, .2)  
+print(u2)
+```
+
+```{r noinfl, echo=FALSE}
+x <- c(34, 54, 138, 247, 268, 432, 437)
+dat_noinfl <- dat[-x,]
+```
+
+
+```{r withoutinfl, echo=FALSE}
+# without influential obs
+final_model <- lrm(stroke ~ age + hypertension, data = dat_noinfl,x = TRUE, y = TRUE)
+print(final_model)
+```
+
+
+```{r withinfl, echo=FALSE}
+# with influential obs
+final_model <- lrm(stroke ~ age + hypertension, data = dat,x = TRUE, y = TRUE)
+print(final_model)
+```
+
+
