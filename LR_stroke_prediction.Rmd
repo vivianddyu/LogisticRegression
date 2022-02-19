@@ -98,7 +98,7 @@ rcorr(tmp)
 
 ## Visualize the relationship between the continuous variables and the outcome (stroke) to assess linearity
 
-# Histspike bins the continuous x variable into equal-width bins and then computes and plots the frequency counts of Y within each bin. The function then displays the proportions as a vertical histogram with a loess curve fit to the plot.The loess nonparametric smoother is an excellent tool for determining the shape of the relationship between a predictor and the response
+### Histspike bins the continuous x variable into equal-width bins and then computes and plots the frequency counts of Y within each bin. The function then displays the proportions as a vertical histogram with a loess curve fit to the plot.The loess nonparametric smoother is an excellent tool for determining the shape of the relationship between a predictor and the response
 ```{r seelin, echo=FALSE}
 # datadist function computes statistical summaries of predictors to  automate 
 # estimation and plotting of effects
@@ -215,7 +215,7 @@ print(a_and_s)
 
 
 ## Stepwise Variable Selection
-# perform backward stepwise variable selection - the final model should be adjusted later
+### perform backward stepwise variable selection - the final model should be adjusted later
 ```{r bwstep, echo=FALSE}
 fastbw(checkint)
 ```
@@ -253,5 +253,103 @@ print(final_model)
 final_model <- lrm(stroke ~ age + hypertension, data = dat,x = TRUE, y = TRUE)
 print(final_model)
 ```
+
+
+## Model details
+### Print probabilities of stroke by age and hypertension, including influential observations
+```{r withinfl_prob, echo=FALSE}
+# with influential obs
+dd <- datadist(dat); options(datadist='dd')
+probs <- Predict(final_model, age, hypertension,  fun=plogis)
+# probs <- Predict(final_model, age=c(20, 40, 60, 80, 100), hypertension,  fun=plogis)
+print(probs)
+ggplot(probs) + labs(title="Effects of Age on log-odds of Stroke by Hypertension")
+```
+
+### Probability of stroke for team members' age in different hypertesion status
+```{r exp_int, echo=FALSE}
+# datadist function computes statistical summaries of predictors to  automate estimation and plotting of effects
+probs <- Predict(final_model, age=c(22,25,32), hypertension=c(0,1), fun=plogis)
+print(probs)
+
+# dlogis gives the density, plogis gives the distribution function, qlogis gives the quantile function, and rlogis generates random deviates.
+# The length of the result is determined by n for rlogis, and is the maximum of the lengths of the numerical arguments for the other functions.
+```
+
+
+## Validating the model using the bootstrap to detect whether the model is overfitting the data
+```{r val_final, echo=FALSE}
+# Update will update and (by default) re-fit a model. 
+# x - causes the expanded design matrix (with missings excluded) to be returned under the name x. For print, an object created by lrm.
+# y- causes the response variable (with missings excluded) to be returned under the name y.
+final_model <- update (final_model, x=TRUE, y=TRUE)  
+val <- validate(final_model, B=200, bw=TRUE) 
+```
+
+```{r cal_final, echo=FALSE}
+cal <- calibrate(final_model, B =200)
+plot(cal)
+```
+
+```{r val_final_output, echo=FALSE}
+# Update will update and (by default) re-fit a model. 
+# x - causes the expanded design matrix (with missings excluded) to be returned under the name x. For print, an object created by lrm.
+# y- causes the response variable (with missings excluded) to be returned under the name y.
+final_model <- update (final_model, x=TRUE, y=TRUE)  
+val <- validate(final_model, B=200, bw=TRUE) 
+# Printing the variables selected in the first 20  bootstrap resamples shows that the final selected variables are somewhat arbitrary 
+print(val, B=50, digits =3) 
+```
+
+### You can use the the optimism-corrected slope in the validate output to adjust the original prediction model for optimism
+```{r opt_corr, echo=FALSE}
+shrinkage.factor <- val["Slope","index.corrected"]
+#You multiply the model coefficients (except intercept) by the shrinkage factor (the optimism-corrected slope)
+corr_coef <- data.frame(Original = coef(final_model), shrunk.boot = c(coef(final_model)[1], coef(final_model)[-1] * shrinkage.factor))
+round(corr_coef, 3)
+```
+
+
+
+## Alternative Model building
+```{r Alternative_model_PCA, echo=FALSE}
+# with influential obs
+
+dat.pca <- dat
+
+dat.pca$gender <- as.numeric(dat$gender)
+dat.pca$hypertension <- as.numeric(dat$hypertension)
+dat.pca$heart_disease <- as.numeric(dat$heart_disease)
+dat.pca$ever_married <- as.numeric(dat$ever_married)
+dat.pca$work_type <- as.numeric(dat$work_type)
+dat.pca$Residence_type <- as.numeric(dat$Residence_type)
+dat.pca$smoking_status <- as.numeric(dat$smoking_status)
+#dat$smoking_status <- relevel(dat$smoking_status, ref = 'never smoked')
+dat.pca$bmi <- as.numeric(dat$bmi)
+```
+
+```{r incpca, echo=FALSE}
+# Function to compute the first k PCs
+ipc <- function(x, k=1, ...)
+  princomp(x, ..., cor=TRUE)$scores[,1:k]
+# Compute the first 2 PCs
+pc2 <- ipc(~ gender + age + hypertension + heart_disease + ever_married + work_type + Residence_type + avg_glucose_level + bmi + smoking_status,
+           data=dat.pca, k=2)
+pc2_mod   <- lrm(stroke ~ pc2, data=dat.pca)
+
+print(pc2_mod)
+```
+
+```{r compare, echo=FALSE}
+c(final_model=AIC(final_model), pc2_mod=AIC(pc2_mod)) 
+```
+
+
+
+
+
+
+
+
 
 
