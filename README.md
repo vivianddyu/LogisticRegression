@@ -18,7 +18,7 @@ Step 4. Modelling with and without influential observations
 
 Step 5. Working Model Interperatation: Log-odds and corresponding odd ratios, R2, LR test, Discrimination Indexes
 <p align = 'center'>
-<img src = 'https://github.com/vivianddyu/LogisticRegression/blob/main/Age_on_Stroke_by_Hypertension.PNG?raw=true'>
+<img src = 'https://github.com/vivianddyu/LogisticRegression/blob/main/data/Age_on_Stroke_by_Hypertension.PNG?raw=true'>
 </p>
 
 Step 6. Model Validation: Shrinkage, Calibration, and Bootstrap Validation
